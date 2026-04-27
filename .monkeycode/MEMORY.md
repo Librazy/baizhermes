@@ -32,23 +32,25 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 ## 条目
 
 [Hermes 插件注册结构]
-- Date: 2026-04-23
-- Context: Agent 在执行为 Hermes Agent 实现百智云搜索插件时发现
+- Date: 2026-04-24
+- Context: Agent 在执行为 Hermes Agent 实现百智云图片搜索工具时发现
 - Category: 代码结构
 - Instructions:
   - 插件入口位于仓库根目录 `__init__.py`，通过 `register(ctx)` 调用 `ctx.register_tool(...)` 完成工具注册。
+  - 工具需要根据对应 API Key 是否存在动态注册：`BAIZHI_WEB_SEARCH_API_KEY` 注册 web/AI web search，`BAIZHI_IMG_SEARCH_API_KEY` 注册 image search。
   - `plugin.yaml` 负责声明插件元信息和 `provides_tools`，工具的 schema 与 handler 可在独立模块中组织。
 
 [百智云凭据管理约定]
-- Date: 2026-04-23
-- Context: 用户要求使用百智云搜索 token 进行联调时
+- Date: 2026-04-24
+- Context: 用户要求百智云 Web Search 与 Image Search 使用独立 API Key 时
 - Instructions:
-  - `BAIZHI_WEB_SEARCH_API_KEY` 必须写入项目根目录 `.env`，不能硬编码到代码中。
+  - `BAIZHI_WEB_SEARCH_API_KEY` 和 `BAIZHI_IMG_SEARCH_API_KEY` 相互独立，均应写入项目根目录 `.env`，不能硬编码到代码中。
+  - `plugin.yaml` 不应把 `BAIZHI_WEB_SEARCH_API_KEY` 作为 `requires_env` 强制声明。
 
 [百智云插件本地测试方式]
-- Date: 2026-04-23
-- Context: Agent 在为插件补充回归验证入口时发现
+- Date: 2026-04-24
+- Context: Agent 在为插件补充图片搜索回归验证入口时发现
 - Category: 测试方法
 - Instructions:
   - 使用 `python3 test_baizhi_tools.py` 进行本地回归验证。
-  - 测试脚本会从项目根目录 `.env` 加载 `BAIZHI_WEB_SEARCH_API_KEY`，并分别验证通用搜索与 AI 搜索。
+  - 测试脚本会从项目根目录 `.env` 加载百智云 API Key；配置 Web Search key 时验证通用搜索与 AI 搜索，配置 Image Search key 时验证图片搜索。

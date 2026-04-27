@@ -6,20 +6,26 @@ from typing import Any
 from urllib import error, request
 
 
-_BASE_URL = "https://websearch.app.baizhi.cloud"
-_API_KEY_ENV = "BAIZHI_WEB_SEARCH_API_KEY"
+_WEB_BASE_URL = "https://websearch.app.baizhi.cloud"
+_WEB_API_KEY_ENV = "BAIZHI_WEB_SEARCH_API_KEY"
+_IMG_BASE_URL = "https://imgsearch.app.baizhi.cloud"
+_IMG_API_KEY_ENV = "BAIZHI_IMG_SEARCH_API_KEY"
 _VALID_TIME_RANGES = {"day", "week", "month", "year"}
 
 
-def _check_requirements() -> bool:
-    return bool(os.getenv(_API_KEY_ENV))
+def has_web_search_api_key() -> bool:
+    return bool(os.getenv(_WEB_API_KEY_ENV))
+
+
+def has_img_search_api_key() -> bool:
+    return bool(os.getenv(_IMG_API_KEY_ENV))
 
 
 def _error(message: str) -> str:
     return json.dumps({"error": message}, ensure_ascii=False)
 
 
-def _normalize_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+def _normalize_web_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     query = str(args.get("query", "")).strip()
     if not query:
         return None, "query is required"
@@ -62,13 +68,61 @@ def _normalize_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | 
     return payload, None
 
 
-def _build_request(path: str, payload: dict[str, Any], accept: str = "application/json") -> request.Request:
-    api_key = os.getenv(_API_KEY_ENV)
+def _normalize_img_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    query = str(args.get("query", "")).strip()
+    if not query:
+        return None, "query is required"
+
+    count = args.get("count", 5)
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        return None, "count must be an integer between 1 and 5"
+    if count < 1 or count > 5:
+        return None, "count must be an integer between 1 and 5"
+
+    payload: dict[str, Any] = {
+        "query": query,
+        "count": count,
+    }
+
+    raw_image = args.get("image")
+    if raw_image is not None:
+        if not isinstance(raw_image, dict):
+            return None, "image must be an object"
+
+        image: dict[str, int] = {}
+        for key in ("width_min", "height_min", "width_max", "height_max"):
+            value = raw_image.get(key)
+            if value is None:
+                continue
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                return None, f"image.{key} must be a positive integer"
+            if value < 1:
+                return None, f"image.{key} must be a positive integer"
+            image[key] = value
+
+        if image:
+            payload["image"] = image
+
+    return payload, None
+
+
+def _build_request(
+    base_url: str,
+    path: str,
+    payload: dict[str, Any],
+    api_key_env: str,
+    accept: str = "application/json",
+) -> request.Request:
+    api_key = os.getenv(api_key_env)
     if not api_key:
-        raise RuntimeError(f"{_API_KEY_ENV} not configured")
+        raise RuntimeError(f"{api_key_env} not configured")
 
     return request.Request(
-        url=f"{_BASE_URL}{path}",
+        url=f"{base_url}{path}",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -92,15 +146,15 @@ def _parse_http_error(exc: error.HTTPError) -> str:
 def baizhi_web_search(args: dict[str, Any], **kwargs: Any) -> str:
     del kwargs
 
-    if not _check_requirements():
-        return _error(f"{_API_KEY_ENV} not configured")
+    if not has_web_search_api_key():
+        return _error(f"{_WEB_API_KEY_ENV} not configured")
 
-    payload, validation_error = _normalize_args(args)
+    payload, validation_error = _normalize_web_args(args)
     if validation_error:
         return _error(validation_error)
 
     try:
-        req = _build_request("/openapi/search", payload)
+        req = _build_request(_WEB_BASE_URL, "/openapi/search", payload, _WEB_API_KEY_ENV)
         with request.urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
@@ -119,10 +173,10 @@ def baizhi_web_search(args: dict[str, Any], **kwargs: Any) -> str:
 def baizhi_ai_web_search(args: dict[str, Any], **kwargs: Any) -> str:
     del kwargs
 
-    if not _check_requirements():
-        return _error(f"{_API_KEY_ENV} not configured")
+    if not has_web_search_api_key():
+        return _error(f"{_WEB_API_KEY_ENV} not configured")
 
-    payload, validation_error = _normalize_args(args)
+    payload, validation_error = _normalize_web_args(args)
     if validation_error:
         return _error(validation_error)
 
@@ -132,7 +186,13 @@ def baizhi_ai_web_search(args: dict[str, Any], **kwargs: Any) -> str:
     done_payload: dict[str, Any] | None = None
 
     try:
-        req = _build_request("/openapi/ai_search", payload, accept="text/event-stream")
+        req = _build_request(
+            _WEB_BASE_URL,
+            "/openapi/ai_search",
+            payload,
+            _WEB_API_KEY_ENV,
+            accept="text/event-stream",
+        )
         with request.urlopen(req, timeout=60) as response:
             current_event = None
             data_lines: list[str] = []
@@ -195,3 +255,30 @@ def baizhi_ai_web_search(args: dict[str, Any], **kwargs: Any) -> str:
         result["latency_ms"] = done_payload["latency_ms"]
 
     return json.dumps(result, ensure_ascii=False)
+
+
+def baizhi_img_search(args: dict[str, Any], **kwargs: Any) -> str:
+    del kwargs
+
+    if not has_img_search_api_key():
+        return _error(f"{_IMG_API_KEY_ENV} not configured")
+
+    payload, validation_error = _normalize_img_args(args)
+    if validation_error:
+        return _error(validation_error)
+
+    try:
+        req = _build_request(_IMG_BASE_URL, "/openapi/search", payload, _IMG_API_KEY_ENV)
+        with request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"Baizhi API network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"Baizhi image search failed: {exc}")
+
+    if data.get("code") != 0:
+        return _error(data.get("message") or "Baizhi API returned an error")
+
+    return json.dumps(data, ensure_ascii=False)

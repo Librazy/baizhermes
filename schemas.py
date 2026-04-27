@@ -81,3 +81,57 @@ BAIZHI_AI_WEB_SEARCH = {
         "required": ["query"],
     },
 }
+
+
+_IMAGE_FILTER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "width_min": {
+            "type": "integer",
+            "description": "Minimum image width in pixels.",
+            "minimum": 1,
+        },
+        "height_min": {
+            "type": "integer",
+            "description": "Minimum image height in pixels.",
+            "minimum": 1,
+        },
+        "width_max": {
+            "type": "integer",
+            "description": "Maximum image width in pixels.",
+            "minimum": 1,
+        },
+        "height_max": {
+            "type": "integer",
+            "description": "Maximum image height in pixels.",
+            "minimum": 1,
+        },
+    },
+}
+
+
+BAIZHI_IMG_SEARCH = {
+    "name": "baizhi_img_search",
+    "description": (
+        "Use Baizhi.Cloud image search to retrieve image results by keyword. "
+        "Best for finding image URLs with width and height metadata for display or material selection."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Image search query text.",
+            },
+            "count": {
+                "type": "integer",
+                "description": "Number of image results to return, from 1 to 5. Default is 5.",
+                "minimum": 1,
+                "maximum": 5,
+                "default": 5,
+            },
+            "image": _IMAGE_FILTER_SCHEMA,
+        },
+        "required": ["query"],
+    },
+}

@@ -4,8 +4,4 @@ description: Baizhi.Cloud web search and other tools for Hermes.
 provides_tools:
   - baizhi_web_search
   - baizhi_ai_web_search
-requires_env:
-  - name: BAIZHI_WEB_SEARCH_API_KEY
-    description: API key for Baizhi.Cloud web search services
-    url: https://websearch.app.baizhi.cloud
-    secret: true
+  - baizhi_img_search

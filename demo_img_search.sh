@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source .env
+
 curl -SL --fail-with-body -X POST https://imgsearch.app.baizhi.cloud/openapi/search -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${BAIZHI_IMG_SEARCH_API_KEY}" -d '{
     "query": "北京国家会议中心",

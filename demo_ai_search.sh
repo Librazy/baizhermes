@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source .env
+
 curl -SL --fail-with-body -X POST https://websearch.app.baizhi.cloud/openapi/ai_search \
   -H "Accept: text/event-stream" \
   -H "Content-Type: application/json" \

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source .env
+
 curl -SL --fail-with-body -X POST https://websearch.app.baizhi.cloud/openapi/search -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${BAIZHI_WEB_SEARCH_API_KEY}" -d '{
     "query": "Kimi K2.6 模型用户体验",

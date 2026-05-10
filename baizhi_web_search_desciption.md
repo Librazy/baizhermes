@@ -117,7 +117,7 @@ curl -SL --fail-with-body -X POST \
 {
   "code": 0,
   "message": "success",
-  "trace_id": "trc_dc052e45f228742671b33ab5",
+  "trace_id": "trc_deadbeefdeadbeefcafebabecafebabe",
   "data": {
     "request_id": 2525,
     "status": "succeeded",

@@ -358,6 +358,28 @@ BAIZHI_NEWS_SEARCH = {
 }
 
 
+BAIZHI_RAG_UPLOAD_LOCAL_FILE = {
+    "name": "baizhi_rag_upload_local_file",
+    "description": (
+        "Upload a local file to Baizhi.Cloud RAG knowledge base. "
+        "Handles the full workflow internally: gets presigned upload URL via MCP, "
+        "uploads the file via HTTP PUT, then creates the RAG document from the uploaded URL. "
+        "Supports PDF, Word, Excel, images, Markdown, and text files. "
+        "NOTE: Processing is asynchronous and can take 1-10 minutes depending on file size. "
+        "Use baizhi_rag_get_document_status to check progress. Sleep 10-30s between polls — do NOT busy-loop."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "file_path": {"type": "string", "description": "Absolute path to the local file to upload."},
+            "title": {"type": "string", "description": "Document title for the RAG knowledge base. Defaults to filename if not provided."},
+            "file_name": {"type": "string", "description": "Optional filename override. Defaults to basename of file_path."},
+        },
+        "required": ["file_path"],
+    },
+}
+
+
 BAIZHI_RAG_CREATE_DOCUMENT_FROM_URL = {
     "name": "baizhi_rag_create_document_from_url",
     "description": (

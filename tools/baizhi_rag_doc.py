@@ -543,6 +543,71 @@ def baizhi_doc_parser_download(args: dict[str, Any], **kwargs: Any) -> str:
 
 # ─── RAG MCP Tools ───────────────────────────────────────────────────────────
 
+def baizhi_rag_upload_local_file(args: dict[str, Any], **kwargs: Any) -> str:
+    """Upload a local file to RAG knowledge base. Full workflow: get URL → PUT upload → create document."""
+    del kwargs
+    if not has_rag_api_key():
+        return _error(f"{_RAG_API_KEY_ENV} not configured")
+
+    file_path = _require_str(args, "file_path")
+    if not file_path:
+        return _error("file_path is required")
+
+    import mimetypes
+    file_name = _require_str(args, "file_name") or os.path.basename(file_path)
+    title = _require_str(args, "title") or file_name
+    mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+
+    # Step 1: Get presigned upload URL via MCP
+    try:
+        upload_args: dict[str, Any] = {"file_name": file_name}
+        result = _rag_mcp_call_tool("rag_get_doc_upload_url", upload_args)
+        # MCP response wraps payload in structuredContent, which may contain a 'data' key
+        structured = result.get("structuredContent") or result.get("data", {})
+        payload = structured.get("data", structured)
+        upload_url = payload.get("upload_url")
+        read_url = payload.get("read_url")
+        if not upload_url or not read_url:
+            return _error(f"Failed to get upload URL: {payload}")
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP get_doc_upload_url failed: {exc}")
+
+    # Step 2: Upload file via HTTP PUT
+    try:
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+        put_req = request.Request(url=upload_url, data=file_data, method="PUT")
+        put_req.add_header("Content-Type", mime_type)
+        with request.urlopen(put_req, timeout=120) as resp:
+            if resp.status not in (200, 201):
+                return _error(f"Upload failed with HTTP {resp.status}")
+    except FileNotFoundError:
+        return _error(f"File not found: {file_path}")
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"Upload network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"File upload failed: {exc}")
+
+    # Step 3: Create RAG document from uploaded URL via MCP
+    try:
+        create_args: dict[str, Any] = {"url": read_url, "file_name": file_name}
+        result = _rag_mcp_call_tool("rag_create_document_from_url", create_args, timeout=30)
+        structured = result.get("structuredContent", {})
+        return json.dumps(structured, ensure_ascii=False)
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP create_document_from_url failed: {exc}")
+
+
 def baizhi_rag_create_document_from_url(args: dict[str, Any], **kwargs: Any) -> str:
     """Create a RAG document from a remote file URL via MCP."""
     del kwargs
@@ -560,8 +625,8 @@ def baizhi_rag_create_document_from_url(args: dict[str, Any], **kwargs: Any) -> 
 
     try:
         result = _rag_mcp_call_tool("rag_create_document_from_url", arguments)
-        structured = result.get("structuredContent", {})
-        return json.dumps(structured, ensure_ascii=False)
+        structured = result.get("structuredContent") or result.get("data", {})
+        return json.dumps(structured.get("data", structured), ensure_ascii=False)
     except error.HTTPError as exc:
         return _error(_parse_http_error(exc))
     except error.URLError as exc:
@@ -587,8 +652,8 @@ def baizhi_rag_get_doc_upload_url(args: dict[str, Any], **kwargs: Any) -> str:
 
     try:
         result = _rag_mcp_call_tool("rag_get_doc_upload_url", arguments)
-        structured = result.get("structuredContent", {})
-        return json.dumps(structured, ensure_ascii=False)
+        structured = result.get("structuredContent") or result.get("data", {})
+        return json.dumps(structured.get("data", structured), ensure_ascii=False)
     except error.HTTPError as exc:
         return _error(_parse_http_error(exc))
     except error.URLError as exc:
@@ -616,8 +681,8 @@ def baizhi_rag_grep(args: dict[str, Any], **kwargs: Any) -> str:
 
     try:
         result = _rag_mcp_call_tool("rag_grep", arguments)
-        structured = result.get("structuredContent", {})
-        return json.dumps(structured, ensure_ascii=False)
+        structured = result.get("structuredContent") or result.get("data", {})
+        return json.dumps(structured.get("data", structured), ensure_ascii=False)
     except error.HTTPError as exc:
         return _error(_parse_http_error(exc))
     except error.URLError as exc:
@@ -644,8 +709,8 @@ def baizhi_rag_search_sections(args: dict[str, Any], **kwargs: Any) -> str:
 
     try:
         result = _rag_mcp_call_tool("rag_search_sections", arguments)
-        structured = result.get("structuredContent", {})
-        return json.dumps(structured, ensure_ascii=False)
+        structured = result.get("structuredContent") or result.get("data", {})
+        return json.dumps(structured.get("data", structured), ensure_ascii=False)
     except error.HTTPError as exc:
         return _error(_parse_http_error(exc))
     except error.URLError as exc:
@@ -670,8 +735,8 @@ def baizhi_rag_get_section(args: dict[str, Any], **kwargs: Any) -> str:
             "document_id": document_id,
             "section_id": section_id,
         })
-        structured = result.get("structuredContent", {})
-        return json.dumps(structured, ensure_ascii=False)
+        structured = result.get("structuredContent") or result.get("data", {})
+        return json.dumps(structured.get("data", structured), ensure_ascii=False)
     except error.HTTPError as exc:
         return _error(_parse_http_error(exc))
     except error.URLError as exc:

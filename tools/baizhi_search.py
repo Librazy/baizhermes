@@ -10,6 +10,8 @@ _WEB_BASE_URL = "https://websearch.app.baizhi.cloud"
 _WEB_API_KEY_ENV = "BAIZHI_WEB_SEARCH_API_KEY"
 _IMG_BASE_URL = "https://imgsearch.app.baizhi.cloud"
 _IMG_API_KEY_ENV = "BAIZHI_IMG_SEARCH_API_KEY"
+_NEWS_BASE_URL = "https://newssearch.app.baizhi.cloud"
+_NEWS_API_KEY_ENV = "BAIZHI_NEWS_SEARCH_API_KEY"
 _VALID_TIME_RANGES = {"day", "week", "month", "year"}
 
 
@@ -19,6 +21,10 @@ def has_web_search_api_key() -> bool:
 
 def has_img_search_api_key() -> bool:
     return bool(os.getenv(_IMG_API_KEY_ENV))
+
+
+def has_news_search_api_key() -> bool:
+    return bool(os.getenv(_NEWS_API_KEY_ENV))
 
 
 def _error(message: str) -> str:
@@ -106,6 +112,52 @@ def _normalize_img_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, st
 
         if image:
             payload["image"] = image
+
+    return payload, None
+
+
+def _normalize_news_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    query = str(args.get("query", "")).strip()
+    if not query:
+        return None, "query is required"
+
+    max_results = args.get("max_results", 10)
+    try:
+        max_results = int(max_results)
+    except (TypeError, ValueError):
+        return None, "max_results must be an integer between 1 and 20"
+    if max_results < 1 or max_results > 20:
+        return None, "max_results must be an integer between 1 and 20"
+
+    time_range = str(args.get("time_range", "month")).strip() or "month"
+    if time_range not in _VALID_TIME_RANGES:
+        return None, "time_range must be one of: day, week, month, year"
+
+    include_answer = bool(args.get("include_answer", False))
+
+    payload: dict[str, Any] = {
+        "query": query,
+        "max_results": max_results,
+        "time_range": time_range,
+        "include_answer": include_answer,
+    }
+
+    # Handle domain filters
+    include_domains = args.get("include_domains")
+    if include_domains is not None:
+        if not isinstance(include_domains, list) or not all(isinstance(item, str) and item.strip() for item in include_domains):
+            return None, "include_domains must be a non-empty string array"
+        if len(include_domains) > 300:
+            return None, "include_domains must not exceed 300 domains"
+        payload["include_domains"] = [item.strip() for item in include_domains]
+
+    exclude_domains = args.get("exclude_domains")
+    if exclude_domains is not None:
+        if not isinstance(exclude_domains, list) or not all(isinstance(item, str) and item.strip() for item in exclude_domains):
+            return None, "exclude_domains must be a non-empty string array"
+        if len(exclude_domains) > 150:
+            return None, "exclude_domains must not exceed 150 domains"
+        payload["exclude_domains"] = [item.strip() for item in exclude_domains]
 
     return payload, None
 
@@ -280,5 +332,36 @@ def baizhi_img_search(args: dict[str, Any], **kwargs: Any) -> str:
 
     if data.get("code") != 0:
         return _error(data.get("message") or "Baizhi API returned an error")
+
+    return json.dumps(data, ensure_ascii=False)
+
+
+def baizhi_news_search(args: dict[str, Any], **kwargs: Any) -> str:
+    del kwargs
+
+    if not has_news_search_api_key():
+        return _error(f"{_NEWS_API_KEY_ENV} not configured")
+
+    payload, validation_error = _normalize_news_args(args)
+    if validation_error:
+        return _error(validation_error)
+
+    try:
+        req = _build_request(_NEWS_BASE_URL, "/openapi/v1/news/search", payload, _NEWS_API_KEY_ENV)
+        with request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"Baizhi API network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"Baizhi news search failed: {exc}")
+
+    # Check for error in the response structure
+    if data.get("error") is not None:
+        error_msg = data.get("error", {})
+        if isinstance(error_msg, dict):
+            error_msg = error_msg.get("message", "Baizhi API returned an error")
+        return _error(str(error_msg))
 
     return json.dumps(data, ensure_ascii=False)

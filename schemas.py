@@ -262,3 +262,71 @@ BAIZHI_DOC_PARSER_DOWNLOAD = {
         "required": ["document_id", "key"],
     },
 }
+
+
+_NEWS_FILTER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "include_domains": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Optional allowlist of news domains (max 300).",
+            "maxItems": 300,
+        },
+        "exclude_domains": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Optional blocklist of news domains (max 150).",
+            "maxItems": 150,
+        },
+    },
+}
+
+
+BAIZHI_NEWS_SEARCH = {
+    "name": "baizhi_news_search",
+    "description": (
+        "Use Baizhi.Cloud news search to retrieve news articles with optional AI summary. "
+        "Best for current news lookup, media monitoring, and news-based research."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "News search query text or natural language question.",
+            },
+            "max_results": {
+                "type": "integer",
+                "description": "Number of news results to return, from 1 to 20. Default is 10.",
+                "minimum": 1,
+                "maximum": 20,
+                "default": 10,
+            },
+            "time_range": {
+                "type": "string",
+                "description": "Freshness filter for news results.",
+                "enum": ["day", "week", "month", "year"],
+                "default": "month",
+            },
+            "include_answer": {
+                "type": "boolean",
+                "description": "Whether to include AI-generated summary of the news results.",
+                "default": False,
+            },
+            "include_domains": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional allowlist of news domains (max 300).",
+                "maxItems": 300,
+            },
+            "exclude_domains": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional blocklist of news domains (max 150).",
+                "maxItems": 150,
+            },
+        },
+        "required": ["query"],
+    },
+}

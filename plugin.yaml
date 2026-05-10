@@ -5,6 +5,7 @@ provides_tools:
   - baizhi_web_search
   - baizhi_ai_web_search
   - baizhi_img_search
+  - baizhi_news_search
   - baizhi_rag_create_document
   - baizhi_rag_update_document
   - baizhi_rag_delete_document

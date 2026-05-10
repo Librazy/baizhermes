@@ -229,7 +229,6 @@ def baizhi_rag_chat_stream(args: dict[str, Any], **kwargs: Any) -> str:
     answer_parts: list[str] = []
     retrieval_items: list[dict[str, Any]] = []
     citations: list[dict[str, Any]] = []
-    final_answer = ""
 
     try:
         req = _json_request(
@@ -255,14 +254,15 @@ def baizhi_rag_chat_stream(args: dict[str, Any], **kwargs: Any) -> str:
                     if event_name == "retrieval_done":
                         retrieval_items = payload_obj.get("items", [])
                     elif event_name == "delta":
-                        answer_parts.append(payload_obj.get("content", ""))
+                        answer_parts.append(payload_obj.get("text", ""))
                     elif event_name == "citations":
                         if isinstance(payload_obj, list):
                             citations = payload_obj
                         else:
                             citations = payload_obj.get("citations", [])
                     elif event_name == "done":
-                        final_answer = payload_obj.get("answer", "")
+                        # done event only signals completion; answer is accumulated from deltas
+                        pass
 
                     current_event = None
                     data_lines = []
@@ -284,7 +284,7 @@ def baizhi_rag_chat_stream(args: dict[str, Any], **kwargs: Any) -> str:
 
     return json.dumps(
         {
-            "answer": final_answer or "".join(answer_parts),
+            "answer": "".join(answer_parts),
             "retrieval_items": retrieval_items,
             "citations": citations,
         },
@@ -320,18 +320,32 @@ def baizhi_doc_parser_upload(args: dict[str, Any], **kwargs: Any) -> str:
         return _error(f"{_DOC_API_KEY_ENV} not configured")
 
     file_url = _require_str(args, "file_url")
+    file_path = _require_str(args, "file_path")
     filename = _require_str(args, "filename")
-    if not file_url:
-        return _error("file_url is required")
 
-    try:
-        file_data, content_type = _download_file(file_url)
-    except Exception as exc:
-        return _error(f"Failed to download file_url: {exc}")
+    if not file_url and not file_path:
+        return _error("file_url or file_path is required")
 
-    if not filename:
-        url_path = parse.urlparse(file_url).path
-        filename = (url_path.rsplit("/", 1)[-1] or "document.bin").strip()
+    if file_path:
+        # Local file upload
+        import mimetypes
+        try:
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+        except Exception as exc:
+            return _error(f"Failed to read file_path: {exc}")
+        if not filename:
+            filename = os.path.basename(file_path) or "document.bin"
+        content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+    else:
+        # Remote URL download
+        try:
+            file_data, content_type = _download_file(file_url)
+        except Exception as exc:
+            return _error(f"Failed to download file_url: {exc}")
+        if not filename:
+            url_path = parse.urlparse(file_url).path
+            filename = (url_path.rsplit("/", 1)[-1] or "document.bin").strip()
 
     body, boundary = _build_multipart_body("file", filename, file_data, content_type)
     api_key = os.getenv(_DOC_API_KEY_ENV)

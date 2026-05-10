@@ -113,14 +113,13 @@ def _mcp_call_tool(base_url: str, api_key_env: str, tool_name: str, arguments: d
     }
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
+    if session_id:
+        headers["Mcp-Session-Id"] = session_id
+
     req = request.Request(
         url=base_url,
         data=data,
-        headers={
-            "Authorization": f"Bearer {os.getenv(api_key_env)}",
-            "Content-Type": "application/json",
-            "Mcp-Session-Id": session_id,
-        },
+        headers=headers,
         method="POST",
     )
     with request.urlopen(req, timeout=timeout) as resp:
@@ -151,12 +150,9 @@ def _doc_mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: st
     return _mcp_call_tool(_DOC_MCP_BASE_URL, _DOC_API_KEY_ENV, tool_name, arguments, session_id, timeout)
 
 
-def _rag_mcp_init_session() -> str:
-    return _mcp_init_session(_RAG_MCP_BASE_URL, _RAG_API_KEY_ENV)
-
-
-def _rag_mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str, timeout: int = 60) -> dict:
-    return _mcp_call_tool(_RAG_MCP_BASE_URL, _RAG_API_KEY_ENV, tool_name, arguments, session_id, timeout)
+def _rag_mcp_call_tool(tool_name: str, arguments: dict[str, Any], timeout: int = 60) -> dict:
+    """Call a RAG MCP tool. RAG MCP is stateless (no session ID required)."""
+    return _mcp_call_tool(_RAG_MCP_BASE_URL, _RAG_API_KEY_ENV, tool_name, arguments, session_id="", timeout=timeout)
 
 
 def baizhi_rag_create_document(args: dict[str, Any], **kwargs: Any) -> str:
@@ -559,8 +555,7 @@ def baizhi_rag_create_document_from_url(args: dict[str, Any], **kwargs: Any) -> 
             arguments[key] = args[key]
 
     try:
-        session_id = _rag_mcp_init_session()
-        result = _rag_mcp_call_tool("rag_create_document_from_url", arguments, session_id)
+        result = _rag_mcp_call_tool("rag_create_document_from_url", arguments)
         structured = result.get("structuredContent", {})
         return json.dumps(structured, ensure_ascii=False)
     except error.HTTPError as exc:
@@ -587,8 +582,7 @@ def baizhi_rag_get_doc_upload_url(args: dict[str, Any], **kwargs: Any) -> str:
             arguments[key] = args[key]
 
     try:
-        session_id = _rag_mcp_init_session()
-        result = _rag_mcp_call_tool("rag_get_doc_upload_url", arguments, session_id)
+        result = _rag_mcp_call_tool("rag_get_doc_upload_url", arguments)
         structured = result.get("structuredContent", {})
         return json.dumps(structured, ensure_ascii=False)
     except error.HTTPError as exc:
@@ -617,8 +611,7 @@ def baizhi_rag_grep(args: dict[str, Any], **kwargs: Any) -> str:
         arguments["document_ids"] = args["document_ids"]
 
     try:
-        session_id = _rag_mcp_init_session()
-        result = _rag_mcp_call_tool("rag_grep", arguments, session_id)
+        result = _rag_mcp_call_tool("rag_grep", arguments)
         structured = result.get("structuredContent", {})
         return json.dumps(structured, ensure_ascii=False)
     except error.HTTPError as exc:
@@ -646,8 +639,7 @@ def baizhi_rag_search_sections(args: dict[str, Any], **kwargs: Any) -> str:
         arguments["document_ids"] = args["document_ids"]
 
     try:
-        session_id = _rag_mcp_init_session()
-        result = _rag_mcp_call_tool("rag_search_sections", arguments, session_id)
+        result = _rag_mcp_call_tool("rag_search_sections", arguments)
         structured = result.get("structuredContent", {})
         return json.dumps(structured, ensure_ascii=False)
     except error.HTTPError as exc:
@@ -670,11 +662,10 @@ def baizhi_rag_get_section(args: dict[str, Any], **kwargs: Any) -> str:
         return _error("document_id and section_id are required")
 
     try:
-        session_id = _rag_mcp_init_session()
         result = _rag_mcp_call_tool("rag_get_section", {
             "document_id": document_id,
             "section_id": section_id,
-        }, session_id)
+        })
         structured = result.get("structuredContent", {})
         return json.dumps(structured, ensure_ascii=False)
     except error.HTTPError as exc:

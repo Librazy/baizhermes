@@ -225,13 +225,24 @@ BAIZHI_RAG_CHAT_STREAM = {
 
 BAIZHI_DOC_PARSER_UPLOAD = {
     "name": "baizhi_doc_parser_upload",
-    "description": "Upload a document file to Baizhi parser. Supports both remote URL (file_url) and local file path (file_path).",
+    "description": (
+        "Upload or parse a document with Baizhi parser. "
+        "file_url: submits remote URL via MCP docparse_parse (server-side fetch, no local download). "
+        "file_path: uploads local file via OpenAPI multipart POST. "
+        "Use exactly one of file_url or file_path."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
-            "file_url": {"type": "string", "description": "Publicly accessible URL for the source file. Use either file_url or file_path."},
-            "file_path": {"type": "string", "description": "Local file path for the source file. Use either file_url or file_path."},
-            "filename": {"type": "string", "description": "Optional filename override."},
+            "file_url": {
+                "type": "string",
+                "description": "Publicly accessible HTTP(S) URL for the source file. Server-side fetch via MCP (zero local bandwidth).",
+            },
+            "file_path": {
+                "type": "string",
+                "description": "Local file path for the source file. Uploaded via OpenAPI multipart POST.",
+            },
+            "filename": {"type": "string", "description": "Optional filename override (only used for file_path)."},
         },
         "required": [],
     },

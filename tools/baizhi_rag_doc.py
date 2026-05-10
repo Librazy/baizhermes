@@ -9,6 +9,7 @@ from urllib import error, parse, request
 
 
 _RAG_BASE_URL = "https://ragcloud.app.baizhi.cloud/openapi/v1"
+_MCP_BASE_URL = "https://beeparser.app.baizhi.cloud/mcp"
 _DOC_BASE_URL = "https://beeparser.app.baizhi.cloud/openapi/v1"
 _RAG_API_KEY_ENV = "BAIZHI_RAG_API_KEY"
 _DOC_API_KEY_ENV = "BAIZHI_DOC_PARSER_API_KEY"
@@ -68,6 +69,77 @@ def _json_request(
 def _require_str(args: dict[str, Any], key: str) -> str | None:
     value = str(args.get(key, "")).strip()
     return value or None
+
+
+def _mcp_request(method: str, params: dict[str, Any] | None = None, session_id: str | None = None) -> tuple[dict, str | None]:
+    """Make an MCP JSON-RPC request. Returns (response_body, new_session_id)."""
+    api_key = os.getenv(_DOC_API_KEY_ENV)
+    if not api_key:
+        raise RuntimeError(f"{_DOC_API_KEY_ENV} not configured")
+
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": method,
+        "params": params or {},
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    if session_id:
+        headers["Mcp-Session-Id"] = session_id
+
+    req = request.Request(url=_MCP_BASE_URL, data=data, headers=headers, method="POST")
+    with request.urlopen(req, timeout=30) as resp:
+        new_sid = resp.headers.get("Mcp-Session-Id")
+        body = json.loads(resp.read().decode("utf-8"))
+        return body, new_sid
+
+
+def _mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str) -> dict:
+    """Call an MCP tool and return the structured content."""
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": tool_name,
+            "arguments": arguments,
+        },
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    req = request.Request(
+        url=_MCP_BASE_URL,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {os.getenv(_DOC_API_KEY_ENV)}",
+            "Content-Type": "application/json",
+            "Mcp-Session-Id": session_id,
+        },
+        method="POST",
+    )
+    with request.urlopen(req, timeout=60) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+        return body.get("result", {})
+
+
+def _mcp_init_session() -> str:
+    """Initialize an MCP session and return the session ID."""
+    _, session_id = _mcp_request("initialize", {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {},
+        "clientInfo": {"name": "hermes-baizhi-plugin", "version": "1.0.0"},
+    })
+    if not session_id:
+        raise RuntimeError("MCP initialize response missing Mcp-Session-Id header")
+
+    # Send initialized notification
+    _mcp_request("notifications/initialized", {}, session_id=session_id)
+    return session_id
 
 
 def baizhi_rag_create_document(args: dict[str, Any], **kwargs: Any) -> str:
@@ -292,13 +364,6 @@ def baizhi_rag_chat_stream(args: dict[str, Any], **kwargs: Any) -> str:
     )
 
 
-def _download_file(url: str) -> tuple[bytes, str]:
-    req = request.Request(url=url, method="GET")
-    with request.urlopen(req, timeout=60) as resp:
-        content_type = resp.headers.get("Content-Type") or "application/octet-stream"
-        return resp.read(), content_type
-
-
 def _build_multipart_body(field_name: str, filename: str, file_data: bytes, content_type: str) -> tuple[bytes, str]:
     boundary = f"----HermesBoundary{uuid.uuid4().hex}"
     chunks = [
@@ -326,26 +391,35 @@ def baizhi_doc_parser_upload(args: dict[str, Any], **kwargs: Any) -> str:
     if not file_url and not file_path:
         return _error("file_url or file_path is required")
 
-    if file_path:
-        # Local file upload
-        import mimetypes
+    if file_url:
+        # Remote URL: use MCP docparse_parse (server-side fetch, no local download)
         try:
-            with open(file_path, "rb") as f:
-                file_data = f.read()
+            session_id = _mcp_init_session()
+            result = _mcp_call_tool("docparse_parse", {"url": file_url}, session_id)
+            structured = result.get("structuredContent", {})
+            return json.dumps({
+                "document_id": structured.get("document_id"),
+                "filename": structured.get("filename"),
+                "status": structured.get("status"),
+                "source": "mcp",
+            }, ensure_ascii=False)
+        except error.HTTPError as exc:
+            return _error(_parse_http_error(exc))
+        except error.URLError as exc:
+            return _error(f"MCP network error: {exc.reason}")
         except Exception as exc:
-            return _error(f"Failed to read file_path: {exc}")
-        if not filename:
-            filename = os.path.basename(file_path) or "document.bin"
-        content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
-    else:
-        # Remote URL download
-        try:
-            file_data, content_type = _download_file(file_url)
-        except Exception as exc:
-            return _error(f"Failed to download file_url: {exc}")
-        if not filename:
-            url_path = parse.urlparse(file_url).path
-            filename = (url_path.rsplit("/", 1)[-1] or "document.bin").strip()
+            return _error(f"MCP docparse_parse failed: {exc}")
+
+    # Local file upload via OpenAPI multipart
+    import mimetypes
+    try:
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+    except Exception as exc:
+        return _error(f"Failed to read file_path: {exc}")
+    if not filename:
+        filename = os.path.basename(file_path) or "document.bin"
+    content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
 
     body, boundary = _build_multipart_body("file", filename, file_data, content_type)
     api_key = os.getenv(_DOC_API_KEY_ENV)

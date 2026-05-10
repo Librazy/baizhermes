@@ -139,7 +139,11 @@ BAIZHI_IMG_SEARCH = {
 
 BAIZHI_RAG_CREATE_DOCUMENT = {
     "name": "baizhi_rag_create_document",
-    "description": "Create a RAG document in Baizhi.Cloud knowledge base.",
+    "description": (
+        "Create a RAG document in Baizhi.Cloud knowledge base. "
+        "NOTE: Document ingestion is asynchronous — status transitions from 'uploaded' → 'processing' → 'ready'. "
+        "Polling with baizhi_rag_get_document_status may take 1-5 minutes. Use sleep between polls, do NOT busy-loop."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -181,7 +185,11 @@ BAIZHI_RAG_DELETE_DOCUMENT = {
 
 BAIZHI_RAG_GET_DOCUMENT_STATUS = {
     "name": "baizhi_rag_get_document_status",
-    "description": "Get processing status of a RAG document.",
+    "description": (
+        "Get processing status of a RAG document. "
+        "Returns 'uploaded', 'processing', 'ready', or 'error'. "
+        "NOTE: RAG ingestion can take minutes. Call this sparingly — sleep 10-30s between checks. Do NOT busy-loop."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -229,7 +237,9 @@ BAIZHI_DOC_PARSER_UPLOAD = {
         "Upload or parse a document with Baizhi parser. "
         "file_url: submits remote URL via MCP docparse_parse (server-side fetch, no local download). "
         "file_path: uploads local file via OpenAPI multipart POST. "
-        "Use exactly one of file_url or file_path."
+        "Use exactly one of file_url or file_path. "
+        "NOTE: Parsing is asynchronous — use baizhi_doc_parser_get_document to poll status. "
+        "PDF parsing typically takes 10-60s. Sleep between polls, do NOT busy-loop."
     ),
     "parameters": {
         "type": "object",
@@ -251,7 +261,11 @@ BAIZHI_DOC_PARSER_UPLOAD = {
 
 BAIZHI_DOC_PARSER_GET_DOCUMENT = {
     "name": "baizhi_doc_parser_get_document",
-    "description": "Get parser document details by ID.",
+    "description": (
+        "Get parser document details by ID. "
+        "Check the 'Status' field: 'uploaded' → 'parsing' → 'parsed'. "
+        "NOTE: Parsing takes 10-60s for typical PDFs. Sleep between polls, do NOT busy-loop."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -349,7 +363,9 @@ BAIZHI_RAG_CREATE_DOCUMENT_FROM_URL = {
     "description": (
         "Create a RAG knowledge base document from a remote HTTP(S) file URL. "
         "The server fetches and processes the file directly. "
-        "Supports PDF, Word, Excel, images, Markdown, and text files."
+        "Supports PDF, Word, Excel, images, Markdown, and text files. "
+        "NOTE: Processing is asynchronous and can take 1-10 minutes depending on file size. "
+        "Use baizhi_rag_get_document_status to check progress. Sleep 10-30s between polls — do NOT busy-loop."
     ),
     "parameters": {
         "type": "object",

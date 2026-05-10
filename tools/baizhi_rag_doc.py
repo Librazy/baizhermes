@@ -122,7 +122,7 @@ def _mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str) -
         },
         method="POST",
     )
-    with request.urlopen(req, timeout=60) as resp:
+    with request.urlopen(req, timeout=180) as resp:
         body = json.loads(resp.read().decode("utf-8"))
         return body.get("result", {})
 

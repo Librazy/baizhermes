@@ -113,6 +113,10 @@ def _mcp_call_tool(base_url: str, api_key_env: str, tool_name: str, arguments: d
     }
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
+    headers = {
+        "Authorization": f"Bearer {os.getenv(api_key_env)}",
+        "Content-Type": "application/json",
+    }
     if session_id:
         headers["Mcp-Session-Id"] = session_id
 

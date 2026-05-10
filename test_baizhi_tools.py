@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from tools.baizhi_search import baizhi_ai_web_search, baizhi_img_search, baizhi_web_search
+from tools.baizhi_search import baizhi_ai_web_search, baizhi_img_search, baizhi_news_search, baizhi_web_search
 from tools.baizhi_rag_doc import (
     baizhi_doc_parser_download,
     baizhi_doc_parser_get_document,
@@ -42,10 +42,11 @@ def main() -> int:
 
     has_web_key = bool(os.getenv("BAIZHI_WEB_SEARCH_API_KEY"))
     has_img_key = bool(os.getenv("BAIZHI_IMG_SEARCH_API_KEY"))
+    has_news_key = bool(os.getenv("BAIZHI_NEWS_SEARCH_API_KEY"))
     has_rag_key = bool(os.getenv("BAIZHI_RAG_API_KEY"))
     has_doc_key = bool(os.getenv("BAIZHI_DOC_PARSER_API_KEY"))
 
-    if not has_web_key and not has_img_key and not has_rag_key and not has_doc_key:
+    if not has_web_key and not has_img_key and not has_news_key and not has_rag_key and not has_doc_key:
         print(
             json.dumps(
                 {"error": "No Baizhi API key is configured in .env"},
@@ -103,7 +104,33 @@ def main() -> int:
             "first_image_height": first_image.get("height"),
         }
 
-    if has_rag_key:
+    if has_news_key:
+        news_result = json.loads(
+            baizhi_news_search({
+                "query": "人工智能最新进展",
+                "max_results": 5,
+                "time_range": "week",
+                "include_answer": True,
+                "include_domains": [],
+                "exclude_domains": []
+            })
+        )
+        if "error" in news_result:
+            failures["news_search"] = news_result
+            summary["news_search"] = {"ok": False}
+        else:
+            data = news_result.get("data", {})
+            results = data.get("results", [])
+            summary["news_search"] = {
+                "ok": bool(results),
+                "request_id": news_result.get("request_id"),
+                "query": data.get("query"),
+                "has_answer": bool(data.get("answer")),
+                "results_count": len(results),
+                "first_title": results[0].get("title") if results else None,
+                "first_url": results[0].get("url") if results else None,
+                "points_cost": data.get("points_cost"),
+            }
         doc_title = f"Hermes Test {int(time.time())}"
         doc_content = "# Hermes RAG Test\n\n权限管理使用 RBAC 模型。"
 

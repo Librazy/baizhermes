@@ -4,8 +4,10 @@ from . import schemas
 from .tools.baizhi_search import (
     baizhi_ai_web_search,
     baizhi_img_search,
+    baizhi_news_search,
     baizhi_web_search,
     has_img_search_api_key,
+    has_news_search_api_key,
     has_web_search_api_key,
 )
 from .tools.baizhi_rag_doc import (
@@ -43,6 +45,16 @@ def register(ctx) -> None:
                     "handler": baizhi_ai_web_search,
                 },
             ]
+        )
+
+    if has_news_search_api_key():
+        registrations.append(
+            {
+                "name": "baizhi_news_search",
+                "toolset": "baizhi",
+                "schema": schemas.BAIZHI_NEWS_SEARCH,
+                "handler": baizhi_news_search,
+            }
         )
 
     if has_img_search_api_key():

@@ -31,6 +31,21 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 
 ## 条目
 
+[敏感信息与测试资产提交约束]
+- Date: 2026-05-10
+- Context: 用户要求完善 Baizhi 工具测试并提供 API Key 与本地测试文档时
+- Instructions:
+  - 运行测试时可使用用户提供的 API Key 作为运行时环境变量。
+  - API Key 与测试文档都不能提交到 Git 历史。
+
+[Baizhi RAG 文档接口路径约定]
+- Date: 2026-05-10
+- Context: Agent 在执行 RAG 工具实测与对照最新 API 文档时发现
+- Category: 代码模式
+- Instructions:
+  - 创建文本文档应调用 `POST /openapi/v1/documents/text`。
+  - 更新文本文档应调用 `PUT /openapi/v1/documents/{document_id}/text`。
+
 [Hermes 插件注册结构]
 - Date: 2026-04-24
 - Context: Agent 在执行为 Hermes Agent 实现百智云图片搜索工具时发现

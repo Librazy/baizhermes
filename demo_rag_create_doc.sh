@@ -2,7 +2,7 @@
 
 source .env
 
-curl -SL --fail-with-body -X POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents \
+curl -SL --fail-with-body -X POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents/text \
   -H "Authorization: Bearer ${BAIZHI_RAG_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{

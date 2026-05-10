@@ -8,6 +8,19 @@ from .tools.baizhi_search import (
     has_img_search_api_key,
     has_web_search_api_key,
 )
+from .tools.baizhi_rag_doc import (
+    baizhi_doc_parser_download,
+    baizhi_doc_parser_get_document,
+    baizhi_doc_parser_upload,
+    baizhi_rag_chat_stream,
+    baizhi_rag_create_document,
+    baizhi_rag_delete_document,
+    baizhi_rag_get_document_status,
+    baizhi_rag_retrieve,
+    baizhi_rag_update_document,
+    has_doc_parser_api_key,
+    has_rag_api_key,
+)
 
 
 def register(ctx) -> None:
@@ -40,6 +53,72 @@ def register(ctx) -> None:
                 "schema": schemas.BAIZHI_IMG_SEARCH,
                 "handler": baizhi_img_search,
             }
+        )
+
+    if has_rag_api_key():
+        registrations.extend(
+            [
+                {
+                    "name": "baizhi_rag_create_document",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_CREATE_DOCUMENT,
+                    "handler": baizhi_rag_create_document,
+                },
+                {
+                    "name": "baizhi_rag_update_document",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_UPDATE_DOCUMENT,
+                    "handler": baizhi_rag_update_document,
+                },
+                {
+                    "name": "baizhi_rag_delete_document",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_DELETE_DOCUMENT,
+                    "handler": baizhi_rag_delete_document,
+                },
+                {
+                    "name": "baizhi_rag_get_document_status",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_GET_DOCUMENT_STATUS,
+                    "handler": baizhi_rag_get_document_status,
+                },
+                {
+                    "name": "baizhi_rag_retrieve",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_RETRIEVE,
+                    "handler": baizhi_rag_retrieve,
+                },
+                {
+                    "name": "baizhi_rag_chat_stream",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_CHAT_STREAM,
+                    "handler": baizhi_rag_chat_stream,
+                },
+            ]
+        )
+
+    if has_doc_parser_api_key():
+        registrations.extend(
+            [
+                {
+                    "name": "baizhi_doc_parser_upload",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_DOC_PARSER_UPLOAD,
+                    "handler": baizhi_doc_parser_upload,
+                },
+                {
+                    "name": "baizhi_doc_parser_get_document",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_DOC_PARSER_GET_DOCUMENT,
+                    "handler": baizhi_doc_parser_get_document,
+                },
+                {
+                    "name": "baizhi_doc_parser_download",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_DOC_PARSER_DOWNLOAD,
+                    "handler": baizhi_doc_parser_download,
+                },
+            ]
         )
 
     for registration in registrations:

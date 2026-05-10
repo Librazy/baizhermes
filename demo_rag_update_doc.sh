@@ -2,7 +2,7 @@
 
 source .env
 
-curl -SL --fail-with-body -X PUT "https://ragcloud.app.baizhi.cloud/openapi/v1/documents/${RAG_DOCUMENT_ID}" \
+curl -SL --fail-with-body -X PUT "https://ragcloud.app.baizhi.cloud/openapi/v1/documents/${RAG_DOCUMENT_ID}/text" \
   -H "Authorization: Bearer ${BAIZHI_RAG_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{

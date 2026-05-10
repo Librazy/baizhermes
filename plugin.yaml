@@ -5,3 +5,12 @@ provides_tools:
   - baizhi_web_search
   - baizhi_ai_web_search
   - baizhi_img_search
+  - baizhi_rag_create_document
+  - baizhi_rag_update_document
+  - baizhi_rag_delete_document
+  - baizhi_rag_get_document_status
+  - baizhi_rag_retrieve
+  - baizhi_rag_chat_stream
+  - baizhi_doc_parser_upload
+  - baizhi_doc_parser_get_document
+  - baizhi_doc_parser_download

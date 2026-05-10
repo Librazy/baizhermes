@@ -43,7 +43,7 @@ Authorization: Bearer <BAIZHI_RAG_API_KEY>
 #### 请求
 
 ```
-POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents
+POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents/text
 Content-Type: application/json
 Authorization: Bearer <API_KEY>
 ```
@@ -58,7 +58,7 @@ Authorization: Bearer <API_KEY>
 #### 请求示例
 
 ```bash
-curl -X POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents \
+curl -X POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents/text \
   -H "Authorization: Bearer <BAIZHI_RAG_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -92,7 +92,7 @@ curl -X POST https://ragcloud.app.baizhi.cloud/openapi/v1/documents \
 #### 请求
 
 ```
-PUT https://ragcloud.app.baizhi.cloud/openapi/v1/documents/<document_id>
+PUT https://ragcloud.app.baizhi.cloud/openapi/v1/documents/<document_id>/text
 Content-Type: application/json
 Authorization: Bearer <API_KEY>
 ```
@@ -113,7 +113,7 @@ Authorization: Bearer <API_KEY>
 #### 请求示例
 
 ```bash
-curl -X PUT https://ragcloud.app.baizhi.cloud/openapi/v1/documents/<document_id> \
+curl -X PUT https://ragcloud.app.baizhi.cloud/openapi/v1/documents/<document_id>/text \
   -H "Authorization: Bearer <BAIZHI_RAG_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{

@@ -342,3 +342,108 @@ BAIZHI_NEWS_SEARCH = {
         "required": ["query"],
     },
 }
+
+
+BAIZHI_RAG_CREATE_DOCUMENT_FROM_URL = {
+    "name": "baizhi_rag_create_document_from_url",
+    "description": (
+        "Create a RAG knowledge base document from a remote HTTP(S) file URL. "
+        "The server fetches and processes the file directly. "
+        "Supports PDF, Word, Excel, images, Markdown, and text files."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Downloadable HTTP(S) absolute URL of the file."},
+            "file_name": {"type": "string", "description": "Optional filename override when URL lacks a stable name."},
+            "file_type": {"type": "string", "description": "Optional file type/extension override."},
+            "mime_type": {"type": "string", "description": "Optional MIME type override."},
+        },
+        "required": ["url"],
+    },
+}
+
+
+BAIZHI_RAG_GET_DOC_UPLOAD_URL = {
+    "name": "baizhi_rag_get_doc_upload_url",
+    "description": (
+        "Get a presigned upload URL for local files. "
+        "Returns upload_url (for PUT upload) and read_url (for subsequent create_document_from_url). "
+        "This tool does NOT upload the file or create a document — it only prepares the URLs."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "file_name": {"type": "string", "description": "Filename with extension (e.g., report.pdf)."},
+            "file_type": {"type": "string", "description": "Optional file type/extension override."},
+            "mime_type": {"type": "string", "description": "Optional MIME type override."},
+        },
+        "required": ["file_name"],
+    },
+}
+
+
+BAIZHI_RAG_GREP = {
+    "name": "baizhi_rag_grep",
+    "description": (
+        "Exact text or regex search in the RAG knowledge base. "
+        "Best for field names, error messages, paths, API aliases, version numbers, command snippets, "
+        "and other content requiring exact matching. Use when semantic search is not precise enough."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "pattern": {"type": "string", "description": "Text or regex pattern to search for."},
+            "is_regex": {"type": "boolean", "description": "Whether to interpret pattern as a regex."},
+            "case_sensitive": {"type": "boolean", "description": "Whether to match case-sensitively."},
+            "max_results": {"type": "number", "description": "Maximum number of hits to return."},
+            "document_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional list of document IDs to limit search scope.",
+            },
+        },
+        "required": ["pattern"],
+    },
+}
+
+
+BAIZHI_RAG_SEARCH_SECTIONS = {
+    "name": "baizhi_rag_search_sections",
+    "description": (
+        "Locate relevant sections or document entries by topic in the RAG knowledge base. "
+        "Use to find which document/chapter covers a topic before reading full content. "
+        "Returns section metadata, not full text."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Section search keyword or topic."},
+            "top_k": {"type": "number", "description": "Max results. Default 10, max 20."},
+            "document_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional list of document IDs to limit search scope.",
+            },
+        },
+        "required": ["query"],
+    },
+}
+
+
+BAIZHI_RAG_GET_SECTION = {
+    "name": "baizhi_rag_get_section",
+    "description": (
+        "Read the full content of a specific section by document_id and section_id. "
+        "Use after rag_search_sections to read complete instructions, steps, config examples, "
+        "and surrounding context of a located section."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "document_id": {"type": "string", "description": "Document ID."},
+            "section_id": {"type": "string", "description": "Section ID."},
+        },
+        "required": ["document_id", "section_id"],
+    },
+}

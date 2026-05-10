@@ -9,7 +9,8 @@ from urllib import error, parse, request
 
 
 _RAG_BASE_URL = "https://ragcloud.app.baizhi.cloud/openapi/v1"
-_MCP_BASE_URL = "https://beeparser.app.baizhi.cloud/mcp"
+_RAG_MCP_BASE_URL = "https://ragcloud.app.baizhi.cloud/mcp"
+_DOC_MCP_BASE_URL = "https://beeparser.app.baizhi.cloud/mcp"
 _DOC_BASE_URL = "https://beeparser.app.baizhi.cloud/openapi/v1"
 _RAG_API_KEY_ENV = "BAIZHI_RAG_API_KEY"
 _DOC_API_KEY_ENV = "BAIZHI_DOC_PARSER_API_KEY"
@@ -71,11 +72,11 @@ def _require_str(args: dict[str, Any], key: str) -> str | None:
     return value or None
 
 
-def _mcp_request(method: str, params: dict[str, Any] | None = None, session_id: str | None = None) -> tuple[dict, str | None]:
+def _mcp_request(base_url: str, api_key_env: str, method: str, params: dict[str, Any] | None = None, session_id: str | None = None) -> tuple[dict, str | None]:
     """Make an MCP JSON-RPC request. Returns (response_body, new_session_id)."""
-    api_key = os.getenv(_DOC_API_KEY_ENV)
+    api_key = os.getenv(api_key_env)
     if not api_key:
-        raise RuntimeError(f"{_DOC_API_KEY_ENV} not configured")
+        raise RuntimeError(f"{api_key_env} not configured")
 
     payload = {
         "jsonrpc": "2.0",
@@ -92,14 +93,14 @@ def _mcp_request(method: str, params: dict[str, Any] | None = None, session_id: 
     if session_id:
         headers["Mcp-Session-Id"] = session_id
 
-    req = request.Request(url=_MCP_BASE_URL, data=data, headers=headers, method="POST")
+    req = request.Request(url=base_url, data=data, headers=headers, method="POST")
     with request.urlopen(req, timeout=30) as resp:
         new_sid = resp.headers.get("Mcp-Session-Id")
         body = json.loads(resp.read().decode("utf-8"))
         return body, new_sid
 
 
-def _mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str) -> dict:
+def _mcp_call_tool(base_url: str, api_key_env: str, tool_name: str, arguments: dict[str, Any], session_id: str, timeout: int = 60) -> dict:
     """Call an MCP tool and return the structured content."""
     payload = {
         "jsonrpc": "2.0",
@@ -113,23 +114,23 @@ def _mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str) -
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
     req = request.Request(
-        url=_MCP_BASE_URL,
+        url=base_url,
         data=data,
         headers={
-            "Authorization": f"Bearer {os.getenv(_DOC_API_KEY_ENV)}",
+            "Authorization": f"Bearer {os.getenv(api_key_env)}",
             "Content-Type": "application/json",
             "Mcp-Session-Id": session_id,
         },
         method="POST",
     )
-    with request.urlopen(req, timeout=180) as resp:
+    with request.urlopen(req, timeout=timeout) as resp:
         body = json.loads(resp.read().decode("utf-8"))
         return body.get("result", {})
 
 
-def _mcp_init_session() -> str:
+def _mcp_init_session(base_url: str, api_key_env: str) -> str:
     """Initialize an MCP session and return the session ID."""
-    _, session_id = _mcp_request("initialize", {
+    _, session_id = _mcp_request(base_url, api_key_env, "initialize", {
         "protocolVersion": "2024-11-05",
         "capabilities": {},
         "clientInfo": {"name": "hermes-baizhi-plugin", "version": "1.0.0"},
@@ -138,8 +139,24 @@ def _mcp_init_session() -> str:
         raise RuntimeError("MCP initialize response missing Mcp-Session-Id header")
 
     # Send initialized notification
-    _mcp_request("notifications/initialized", {}, session_id=session_id)
+    _mcp_request(base_url, api_key_env, "notifications/initialized", {}, session_id=session_id)
     return session_id
+
+
+def _doc_mcp_init_session() -> str:
+    return _mcp_init_session(_DOC_MCP_BASE_URL, _DOC_API_KEY_ENV)
+
+
+def _doc_mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str, timeout: int = 180) -> dict:
+    return _mcp_call_tool(_DOC_MCP_BASE_URL, _DOC_API_KEY_ENV, tool_name, arguments, session_id, timeout)
+
+
+def _rag_mcp_init_session() -> str:
+    return _mcp_init_session(_RAG_MCP_BASE_URL, _RAG_API_KEY_ENV)
+
+
+def _rag_mcp_call_tool(tool_name: str, arguments: dict[str, Any], session_id: str, timeout: int = 60) -> dict:
+    return _mcp_call_tool(_RAG_MCP_BASE_URL, _RAG_API_KEY_ENV, tool_name, arguments, session_id, timeout)
 
 
 def baizhi_rag_create_document(args: dict[str, Any], **kwargs: Any) -> str:
@@ -394,8 +411,8 @@ def baizhi_doc_parser_upload(args: dict[str, Any], **kwargs: Any) -> str:
     if file_url:
         # Remote URL: use MCP docparse_parse (server-side fetch, no local download)
         try:
-            session_id = _mcp_init_session()
-            result = _mcp_call_tool("docparse_parse", {"url": file_url}, session_id)
+            session_id = _doc_mcp_init_session()
+            result = _doc_mcp_call_tool("docparse_parse", {"url": file_url}, session_id)
             structured = result.get("structuredContent", {})
             return json.dumps({
                 "document_id": structured.get("document_id"),
@@ -522,3 +539,147 @@ def baizhi_doc_parser_download(args: dict[str, Any], **kwargs: Any) -> str:
         return _error(f"Baizhi API network error: {exc.reason}")
     except Exception as exc:
         return _error(f"Baizhi doc parser download failed: {exc}")
+
+
+# ─── RAG MCP Tools ───────────────────────────────────────────────────────────
+
+def baizhi_rag_create_document_from_url(args: dict[str, Any], **kwargs: Any) -> str:
+    """Create a RAG document from a remote file URL via MCP."""
+    del kwargs
+    if not has_rag_api_key():
+        return _error(f"{_RAG_API_KEY_ENV} not configured")
+
+    url = _require_str(args, "url")
+    if not url:
+        return _error("url is required")
+
+    arguments: dict[str, Any] = {"url": url}
+    for key in ("file_name", "file_type", "mime_type"):
+        if args.get(key):
+            arguments[key] = args[key]
+
+    try:
+        session_id = _rag_mcp_init_session()
+        result = _rag_mcp_call_tool("rag_create_document_from_url", arguments, session_id)
+        structured = result.get("structuredContent", {})
+        return json.dumps(structured, ensure_ascii=False)
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP create_document_from_url failed: {exc}")
+
+
+def baizhi_rag_get_doc_upload_url(args: dict[str, Any], **kwargs: Any) -> str:
+    """Get a presigned upload URL for local files via MCP."""
+    del kwargs
+    if not has_rag_api_key():
+        return _error(f"{_RAG_API_KEY_ENV} not configured")
+
+    file_name = _require_str(args, "file_name")
+    if not file_name:
+        return _error("file_name is required")
+
+    arguments: dict[str, Any] = {"file_name": file_name}
+    for key in ("file_type", "mime_type"):
+        if args.get(key):
+            arguments[key] = args[key]
+
+    try:
+        session_id = _rag_mcp_init_session()
+        result = _rag_mcp_call_tool("rag_get_doc_upload_url", arguments, session_id)
+        structured = result.get("structuredContent", {})
+        return json.dumps(structured, ensure_ascii=False)
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP get_doc_upload_url failed: {exc}")
+
+
+def baizhi_rag_grep(args: dict[str, Any], **kwargs: Any) -> str:
+    """Exact text or regex search in RAG knowledge base via MCP."""
+    del kwargs
+    if not has_rag_api_key():
+        return _error(f"{_RAG_API_KEY_ENV} not configured")
+
+    pattern = _require_str(args, "pattern")
+    if not pattern:
+        return _error("pattern is required")
+
+    arguments: dict[str, Any] = {"pattern": pattern}
+    for key in ("is_regex", "case_sensitive", "max_results"):
+        if key in args and args[key] is not None:
+            arguments[key] = args[key]
+    if "document_ids" in args and args["document_ids"]:
+        arguments["document_ids"] = args["document_ids"]
+
+    try:
+        session_id = _rag_mcp_init_session()
+        result = _rag_mcp_call_tool("rag_grep", arguments, session_id)
+        structured = result.get("structuredContent", {})
+        return json.dumps(structured, ensure_ascii=False)
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP grep failed: {exc}")
+
+
+def baizhi_rag_search_sections(args: dict[str, Any], **kwargs: Any) -> str:
+    """Search for relevant sections by topic via MCP."""
+    del kwargs
+    if not has_rag_api_key():
+        return _error(f"{_RAG_API_KEY_ENV} not configured")
+
+    query = _require_str(args, "query")
+    if not query:
+        return _error("query is required")
+
+    arguments: dict[str, Any] = {"query": query}
+    if args.get("top_k") is not None:
+        arguments["top_k"] = args["top_k"]
+    if "document_ids" in args and args["document_ids"]:
+        arguments["document_ids"] = args["document_ids"]
+
+    try:
+        session_id = _rag_mcp_init_session()
+        result = _rag_mcp_call_tool("rag_search_sections", arguments, session_id)
+        structured = result.get("structuredContent", {})
+        return json.dumps(structured, ensure_ascii=False)
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP search_sections failed: {exc}")
+
+
+def baizhi_rag_get_section(args: dict[str, Any], **kwargs: Any) -> str:
+    """Read full content of a specific section via MCP."""
+    del kwargs
+    if not has_rag_api_key():
+        return _error(f"{_RAG_API_KEY_ENV} not configured")
+
+    document_id = _require_str(args, "document_id")
+    section_id = _require_str(args, "section_id")
+    if not document_id or not section_id:
+        return _error("document_id and section_id are required")
+
+    try:
+        session_id = _rag_mcp_init_session()
+        result = _rag_mcp_call_tool("rag_get_section", {
+            "document_id": document_id,
+            "section_id": section_id,
+        }, session_id)
+        structured = result.get("structuredContent", {})
+        return json.dumps(structured, ensure_ascii=False)
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"RAG MCP network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"RAG MCP get_section failed: {exc}")

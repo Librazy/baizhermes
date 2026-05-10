@@ -16,9 +16,14 @@ from .tools.baizhi_rag_doc import (
     baizhi_doc_parser_upload,
     baizhi_rag_chat_stream,
     baizhi_rag_create_document,
+    baizhi_rag_create_document_from_url,
     baizhi_rag_delete_document,
+    baizhi_rag_get_doc_upload_url,
     baizhi_rag_get_document_status,
+    baizhi_rag_get_section,
+    baizhi_rag_grep,
     baizhi_rag_retrieve,
+    baizhi_rag_search_sections,
     baizhi_rag_update_document,
     has_doc_parser_api_key,
     has_rag_api_key,
@@ -105,6 +110,37 @@ def register(ctx) -> None:
                     "toolset": "baizhi",
                     "schema": schemas.BAIZHI_RAG_CHAT_STREAM,
                     "handler": baizhi_rag_chat_stream,
+                },
+                # RAG MCP tools
+                {
+                    "name": "baizhi_rag_create_document_from_url",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_CREATE_DOCUMENT_FROM_URL,
+                    "handler": baizhi_rag_create_document_from_url,
+                },
+                {
+                    "name": "baizhi_rag_get_doc_upload_url",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_GET_DOC_UPLOAD_URL,
+                    "handler": baizhi_rag_get_doc_upload_url,
+                },
+                {
+                    "name": "baizhi_rag_grep",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_GREP,
+                    "handler": baizhi_rag_grep,
+                },
+                {
+                    "name": "baizhi_rag_search_sections",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_SEARCH_SECTIONS,
+                    "handler": baizhi_rag_search_sections,
+                },
+                {
+                    "name": "baizhi_rag_get_section",
+                    "toolset": "baizhi",
+                    "schema": schemas.BAIZHI_RAG_GET_SECTION,
+                    "handler": baizhi_rag_get_section,
                 },
             ]
         )

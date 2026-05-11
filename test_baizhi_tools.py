@@ -6,7 +6,13 @@ import sys
 import time
 from pathlib import Path
 
-from tools.baizhi_search import baizhi_ai_web_search, baizhi_img_search, baizhi_news_search, baizhi_web_search
+from tools.baizhi_search import (
+    baizhi_ai_web_search,
+    baizhi_img_search,
+    baizhi_news_search,
+    baizhi_web_search,
+    baizhi_web_scrape,
+)
 from tools.baizhi_rag_doc import (
     baizhi_doc_parser_download,
     baizhi_doc_parser_get_document,
@@ -45,8 +51,9 @@ def main() -> int:
     has_news_key = bool(os.getenv("BAIZHI_NEWS_SEARCH_API_KEY"))
     has_rag_key = bool(os.getenv("BAIZHI_RAG_API_KEY"))
     has_doc_key = bool(os.getenv("BAIZHI_DOC_PARSER_API_KEY"))
+    has_scrape_key = bool(os.getenv("BAIZHI_WEB_SCRAPE_API_KEY"))
 
-    if not has_web_key and not has_img_key and not has_news_key and not has_rag_key and not has_doc_key:
+    if not has_web_key and not has_img_key and not has_news_key and not has_rag_key and not has_doc_key and not has_scrape_key:
         print(
             json.dumps(
                 {"error": "No Baizhi API key is configured in .env"},
@@ -86,6 +93,22 @@ def main() -> int:
             "results_count": len(ai_result.get("results") or []),
             "summary_preview": (ai_result.get("summary_text") or "")[:120],
         }
+
+    if has_scrape_key:
+        scrape_result = json.loads(
+            baizhi_web_scrape({"url": "https://36kr.com/p/3787501855136774"})
+        )
+        if "error" in scrape_result:
+            failures["web_scrape"] = scrape_result
+            summary["web_scrape"] = {"ok": False}
+        else:
+            data = scrape_result.get("data", {})
+            summary["web_scrape"] = {
+                "ok": scrape_result.get("code") == 0,
+                "source_url": data.get("source_url"),
+                "characters": data.get("characters"),
+                "content_preview": (data.get("content") or "")[:120],
+            }
 
     if has_img_key:
         img_result = json.loads(baizhi_img_search({"query": "北京国家会议中心", "count": 3}))

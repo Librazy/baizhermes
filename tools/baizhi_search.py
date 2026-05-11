@@ -12,6 +12,8 @@ _IMG_BASE_URL = "https://imgsearch.app.baizhi.cloud"
 _IMG_API_KEY_ENV = "BAIZHI_IMG_SEARCH_API_KEY"
 _NEWS_BASE_URL = "https://newssearch.app.baizhi.cloud"
 _NEWS_API_KEY_ENV = "BAIZHI_NEWS_SEARCH_API_KEY"
+_WEB_SCRAPE_BASE_URL = "https://web-scrape.app.baizhi.cloud"
+_WEB_SCRAPE_API_KEY_ENV = "BAIZHI_WEB_SCRAPE_API_KEY"
 _VALID_TIME_RANGES = {"day", "week", "month", "year"}
 
 
@@ -25,6 +27,10 @@ def has_img_search_api_key() -> bool:
 
 def has_news_search_api_key() -> bool:
     return bool(os.getenv(_NEWS_API_KEY_ENV))
+
+
+def has_web_scrape_api_key() -> bool:
+    return bool(os.getenv(_WEB_SCRAPE_API_KEY_ENV))
 
 
 def _error(message: str) -> str:
@@ -363,5 +369,48 @@ def baizhi_news_search(args: dict[str, Any], **kwargs: Any) -> str:
         if isinstance(error_msg, dict):
             error_msg = error_msg.get("message", "Baizhi API returned an error")
         return _error(str(error_msg))
+
+    return json.dumps(data, ensure_ascii=False)
+
+
+def _normalize_web_scrape_args(args: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    url = str(args.get("url", "")).strip()
+    if not url:
+        return None, "url is required"
+    
+    # Validate URL format (basic check for http/https)
+    if not url.startswith(("http://", "https://")):
+        return None, "url must start with http:// or https://"
+    
+    payload: dict[str, Any] = {
+        "url": url,
+    }
+    
+    return payload, None
+
+
+def baizhi_web_scrape(args: dict[str, Any], **kwargs: Any) -> str:
+    del kwargs
+
+    if not has_web_scrape_api_key():
+        return _error(f"{_WEB_SCRAPE_API_KEY_ENV} not configured")
+
+    payload, validation_error = _normalize_web_scrape_args(args)
+    if validation_error:
+        return _error(validation_error)
+
+    try:
+        req = _build_request(_WEB_SCRAPE_BASE_URL, "/openapi/scrape", payload, _WEB_SCRAPE_API_KEY_ENV)
+        with request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        return _error(_parse_http_error(exc))
+    except error.URLError as exc:
+        return _error(f"Baizhi API network error: {exc.reason}")
+    except Exception as exc:
+        return _error(f"Baizhi web scrape failed: {exc}")
+
+    if data.get("code") != 0:
+        return _error(data.get("message") or "Baizhi API returned an error")
 
     return json.dumps(data, ensure_ascii=False)

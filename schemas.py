@@ -485,3 +485,23 @@ BAIZHI_RAG_GET_SECTION = {
         "required": ["document_id", "section_id"],
     },
 }
+
+
+BAIZHI_WEB_SCRAPE = {
+    "name": "baizhi_web_scrape",
+    "description": (
+        "Use Baizhi.Cloud web scrape to extract webpage content as Markdown. "
+        "Best for converting public web pages to structured text for LLM consumption, "
+        "RAG ingestion, or downstream processing."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "url": {
+                "type": "string",
+                "description": "The HTTP or HTTPS URL of the webpage to scrape.",
+            },
+        },
+        "required": ["url"],
+    },
+}

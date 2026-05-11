@@ -15,3 +15,4 @@ provides_tools:
   - baizhi_doc_parser_upload
   - baizhi_doc_parser_get_document
   - baizhi_doc_parser_download
+  - baizhi_web_scrape

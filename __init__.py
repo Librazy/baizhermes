@@ -6,9 +6,11 @@ from .tools.baizhi_search import (
     baizhi_img_search,
     baizhi_news_search,
     baizhi_web_search,
+    baizhi_web_scrape,
     has_img_search_api_key,
     has_news_search_api_key,
     has_web_search_api_key,
+    has_web_scrape_api_key,
 )
 from .tools.baizhi_rag_doc import (
     baizhi_doc_parser_download,
@@ -50,6 +52,16 @@ def register(ctx) -> None:
                     "handler": baizhi_ai_web_search,
                 },
             ]
+        )
+
+    if has_web_scrape_api_key():
+        registrations.append(
+            {
+                "name": "baizhi_web_scrape",
+                "toolset": "baizhi",
+                "schema": schemas.BAIZHI_WEB_SCRAPE,
+                "handler": baizhi_web_scrape,
+            }
         )
 
     if has_news_search_api_key():
